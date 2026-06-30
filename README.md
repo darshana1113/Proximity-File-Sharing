@@ -34,12 +34,12 @@ This project is ideal for demonstrating proximity-based communication and file t
 
 ## � Demo / Output Images
 
-You can add screenshots or output images here to showcase the project in action.
 
 ```md
-c:\Users\Darshana\OneDrive\Desktop\File_Share (1).png
+Images/File_Share (1).png
 
-c:\Users\Darshana\OneDrive\Desktop\File_Share (2).png
+Images/File_Share (2).png
+
 ```
 
 > Place your image files inside an images folder in the repository and update the paths above.
@@ -110,7 +110,9 @@ The system helps avoid accidental overwrites:
 
 ## 📄 License
 
-This project is open for educational and personal use. Add a license of your choice before publishing publicly.
+This project is licensed under the MIT License.
+
+You are free to use, modify, and distribute this project for educational and learning purposes with appropriate attribution.
 
 ## 🤝 Contributing
 
