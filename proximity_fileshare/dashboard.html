@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProxShare — Visual Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg:        #0a0c10;
+    --bg2:       #0f1218;
+    --bg3:       #161b24;
+    --border:    #1e2630;
+    --alice:     #00e5ff;
+    --alice-dim: #00e5ff22;
+    --bob:       #ff6b35;
+    --bob-dim:   #ff6b3522;
+    --green:     #39ff14;
+    --yellow:    #ffd60a;
+    --red:       #ff3a5c;
+    --muted:     #4a5568;
+    --text:      #c8d6e5;
+    --text-dim:  #5a6a7e;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID NOISE BACKGROUND ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: conic-gradient(var(--alice), var(--bob), var(--alice));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    animation: spin-slow 6s linear infinite;
+  }
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+  .logo-text { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--text-dim); }
+  .status-bar { display: flex; gap: 20px; align-items: center; }
+  .stat-pill {
+    font-family: 'Space Mono', monospace; font-size: 0.7rem;
+    padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; }
+  .dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.yellow { background: var(--yellow); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    position: relative; z-index: 5;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 20px;
+    padding: 24px 32px;
+    max-width: 1400px; margin: 0 auto;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+  }
+  .card-title {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 16px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── TOPOLOGY / PROTOCOL FLOW ── */
+  .topology-card {
+    grid-column: 1 / -1;
+    padding: 24px 28px 20px;
+  }
+  .topology-canvas { position: relative; width: 100%; }
+
+  /* ── PROTOCOL FLOW LAYOUT ── */
+  .proto-wrap {
+    display: flex; align-items: stretch; gap: 0;
+    width: 100%; min-height: 300px;
+    position: relative;
+  }
+
+  /* Phase banner across top */
+  .phase-banner {
+    position: absolute; top: 0; left: 0; right: 0;
+    text-align: center;
+    font-family: 'Space Mono', monospace; font-size: 0.68rem;
+    color: var(--alice); letter-spacing: 1.5px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--alice-dim);
+    margin-bottom: 14px;
+  }
+
+  /* Device cards */
+  .device-card {
+    flex: 0 0 200px; min-width: 180px;
+    border-radius: 12px; padding: 18px 14px 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    position: relative; margin-top: 36px;
+  }
+  .device-card.alice-card {
+    background: #0a1e2a; border: 1.5px solid var(--alice);
+    box-shadow: 0 0 24px #00e5ff18;
+  }
+  .device-card.bob-card {
+    background: #1e120a; border: 1.5px solid var(--bob);
+    box-shadow: 0 0 24px #ff6b3518;
+  }
+  .device-title {
+    font-weight: 800; font-size: 1.05rem;
+  }
+  .alice-card .device-title { color: var(--alice); }
+  .bob-card  .device-title { color: var(--bob); }
+
+  .device-circle {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; border: 2px solid;
+    position: relative;
+  }
+  .alice-card .device-circle { border-color: var(--alice); background: var(--alice-dim); }
+  .bob-card   .device-circle { border-color: var(--bob);   background: var(--bob-dim); }
+
+  .device-letter {
+    font-family: 'Space Mono', monospace; font-weight: 700; font-size: 1.5rem;
+  }
+  .alice-card .device-letter { color: var(--alice); }
+  .bob-card   .device-letter { color: var(--bob); }
+
+  .device-role {
+    font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    color: var(--text-dim); text-align: center; line-height: 1.5;
+  }
+  .device-ip {
+    font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--text-dim);
+  }
+  .proto-pills {
+    display: flex; gap: 8px; margin-top: 4px;
+  }
+  .proto-pill {
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--text-dim);
+  }
+  .pill-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .pill-dot.udp { background: #ff6b35; }
+  .pill-dot.tcp { background: var(--green); }
+
+  /* Middle network box + arrows */
+  .network-zone {
+    flex: 1; margin-top: 36px;
+    display: flex; flex-direction: column; align-items: stretch;
+    position: relative; padding: 0 8px;
+    min-height: 280px;
+  }
+
+  /* The SVG canvas for arrows */
+  .proto-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; overflow: visible;
+  }
+
+  /* Network center box */
+  .net-box {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    top: 50%; transform: translate(-50%, -50%);
+    width: 200px;
+    background: #0d151d;
+    border: 1px dashed #2a3a4a;
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .net-box-title {
+    font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    color: var(--text-dim); letter-spacing: 1px; text-align: center; margin-bottom: 2px;
+  }
+  .net-row {
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace; font-size: 0.68rem;
+    padding: 5px 10px; border-radius: 6px; font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .net-row.udp-row { background: #2a1a0a; color: var(--bob); border: 1px solid #3a2a1a; }
+  .net-row.tcp-row { background: #0a1e15; color: var(--green); border: 1px solid #1a3a25; }
+  .net-row.lat-row { background: #0a1820; color: var(--alice); border: 1px solid #1a3040; font-size: 0.62rem; }
+
+  /* Arrow labels on the SVG */
+  .arrow-label {
+    font-family: 'Space Mono', monospace; font-size: 9px;
+    fill: var(--text-dim); letter-spacing: 0.5px;
+  }
+  .arrow-label.udp-lbl { fill: #ff6b35aa; }
+  .arrow-label.tcp-lbl { fill: var(--alice); }
+  .arrow-label.stream-lbl { fill: var(--green); }
+  .arrow-label.md5-lbl { fill: #ffd60aaa; }
+
+  /* Animated dashed lines */
+  @keyframes dash-flow-r { to { stroke-dashoffset: -24; } }
+  @keyframes dash-flow-l { to { stroke-dashoffset: 24; } }
+  .anim-r { animation: dash-flow-r 1.2s linear infinite; }
+  .anim-l { animation: dash-flow-l 1.2s linear infinite; }
+
+  /* SVG transfer line (for JS packet animation) */
+  .transfer-svg {
+    position: absolute; inset: 0; pointer-events: none;
+    width: 100%; height: 100%;
+  }
+
+  /* ── FILE PANELS ── */
+  .file-panel { }
+  .file-panel.alice-panel .card-title { color: var(--alice); }
+  .file-panel.bob-panel .card-title { color: var(--bob); }
+
+  .file-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+  .file-list::-webkit-scrollbar { width: 4px; }
+  .file-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .file-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    font-family: 'Space Mono', monospace; font-size: 0.72rem;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .file-item:hover { border-color: var(--muted); transform: translateX(2px); }
+  .file-item.new-file { animation: flash-in 0.6s ease-out; }
+  @keyframes flash-in {
+    from { background: rgba(57,255,20,.15); border-color: var(--green); }
+    to   { background: var(--bg3); border-color: var(--border); }
+  }
+  .file-item.conflict { border-color: var(--red); }
+  .file-icon { font-size: 1rem; flex-shrink: 0; }
+  .file-name { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { color: var(--text-dim); flex-shrink: 0; }
+  .file-badge {
+    font-size: 0.6rem; padding: 1px 6px; border-radius: 10px; flex-shrink: 0;
+    font-weight: 700; letter-spacing: 1px;
+  }
+  .badge-new { background: #39ff1422; color: var(--green); border: 1px solid var(--green); }
+  .badge-conflict { background: #ff3a5c22; color: var(--red); border: 1px solid var(--red); }
+  .badge-synced { background: #1e2630; color: var(--text-dim); border: 1px solid var(--border); }
+
+  /* Transfer progress bar in file item */
+  .file-progress {
+    position: absolute; bottom: 0; left: 0; height: 2px;
+    background: linear-gradient(90deg, var(--alice), var(--bob));
+    transition: width 0.3s;
+  }
+
+  /* ── TRANSFER CONTROLS ── */
+  .controls-card { grid-column: 1 / -1; }
+  .controls-inner { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .control-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+  .control-label { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--text-dim); letter-spacing: 1px; }
+  select, input[type="text"] {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  select:focus, input:focus { border-color: var(--alice); }
+  .btn {
+    padding: 10px 20px; border-radius: 6px;
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.8rem; letter-spacing: 1px;
+    border: none; cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--alice);
+    color: #000;
+  }
+  .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 4px 20px var(--alice-dim); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--bob);
+    border: 1px solid var(--bob);
+  }
+  .btn-secondary:hover { background: var(--bob-dim); }
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red);
+  }
+  .btn-danger:hover { background: #ff3a5c22; }
+  .btn:active { transform: scale(0.97); }
+
+  /* ── ACTIVITY LOG ── */
+  .log-card { grid-column: 1 / -1; }
+  .log-list {
+    display: flex; flex-direction: column; gap: 4px;
+    max-height: 200px; overflow-y: auto;
+    font-family: 'Space Mono', monospace; font-size: 0.7rem;
+  }
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .log-entry {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 6px 10px; border-radius: 6px;
+    border-left: 2px solid var(--border);
+    animation: slide-in 0.3s ease-out;
+  }
+  @keyframes slide-in { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:none; } }
+  .log-time { color: var(--text-dim); flex-shrink: 0; }
+  .log-tag {
+    flex-shrink: 0; width: 60px; text-align: center;
+    padding: 0 4px; border-radius: 3px;
+    font-weight: 700; font-size: 0.6rem; letter-spacing: 1px;
+  }
+  .log-msg { color: var(--text); }
+  .tag-disc  { background:#00e5ff18; color:var(--alice); }
+  .tag-send  { background:#3a7bd518; color:#3a7bd5; }
+  .tag-recv  { background:#9b59b618; color:#9b59b6; }
+  .tag-sync  { background:#ffd60a18; color:var(--yellow); }
+  .tag-ok    { background:#39ff1418; color:var(--green); }
+  .tag-err   { background:#ff3a5c18; color:var(--red); }
+  .tag-conf  { background:#ff6b3518; color:var(--bob); }
+
+  .border-disc  { border-color: var(--alice); }
+  .border-send  { border-color: #3a7bd5; }
+  .border-recv  { border-color: #9b59b6; }
+  .border-sync  { border-color: var(--yellow); }
+  .border-ok    { border-color: var(--green); }
+  .border-err   { border-color: var(--red); }
+  .border-conf  { border-color: var(--bob); }
+
+  /* ── ANIMATED TRANSFER PACKET ── */
+  .packet {
+    position: absolute;
+    width: 10px; height: 10px; border-radius: 50%;
+    box-shadow: 0 0 8px currentColor;
+    pointer-events: none; z-index: 20;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat-label { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+  .stat-value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+  .stat-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--text-dim); }
+  .val-alice { color: var(--alice); }
+  .val-bob { color: var(--bob); }
+  .val-green { color: var(--green); }
+  .val-yellow { color: var(--yellow); }
+
+  /* ── CONFLICT MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.75); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--red);
+    border-radius: 16px; padding: 28px; width: 440px; max-width: 95vw;
+    transform: scale(0.95); transition: transform 0.2s;
+  }
+  .modal-overlay.open .modal { transform: scale(1); }
+  .modal-title { font-size: 1rem; font-weight: 800; color: var(--red); margin-bottom: 8px; }
+  .modal-body { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--text-dim); margin-bottom: 20px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">📡</div>
+    <div>
+      <div class="logo-text">ProxShare</div>
+      <div class="logo-sub">PROXIMITY FILE SHARING — VISUAL DASHBOARD</div>
+    </div>
+  </div>
+  <div class="status-bar">
+    <div class="stat-pill"><div class="dot green"></div> DISCOVERY ACTIVE</div>
+    <div class="stat-pill" id="peer-count-pill"><div class="dot yellow"></div> 2 PEERS ONLINE</div>
+    <div class="stat-pill" id="clock" style="min-width:90px;justify-content:center"></div>
+  </div>
+</header>
+
+<main>
+  <!-- ── STATS ROW ── -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Files Transferred</div>
+      <div class="stat-value val-green" id="stat-transferred">0</div>
+      <div class="stat-sub">this session</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Alice's Folder</div>
+      <div class="stat-value val-alice" id="stat-alice-count">6</div>
+      <div class="stat-sub">shared_alice/</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Bob's Folder</div>
+      <div class="stat-value val-bob" id="stat-bob-count">0</div>
+      <div class="stat-sub">shared_bob/</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Conflicts</div>
+      <div class="stat-value val-yellow" id="stat-conflicts">0</div>
+      <div class="stat-sub">resolved</div>
+    </div>
+  </div>
+
+  <!-- ── NETWORK TOPOLOGY / PROTOCOL FLOW ── -->
+  <div class="card topology-card">
+    <div class="card-title" style="margin-bottom:4px">📡 Protocol Flow — Alice ↔ Bob  <span id="phase-label" style="color:var(--alice);font-size:0.68rem;letter-spacing:1.5px;margin-left:12px">PHASE 1 — UDP DISCOVERY</span></div>
+
+    <div class="topology-canvas" id="topo">
+      <div class="proto-wrap" id="proto-wrap">
+
+        <!-- ── ALICE DEVICE CARD ── -->
+        <div class="device-card alice-card">
+          <div class="device-title">Alice</div>
+          <div class="device-circle">
+            <span class="device-letter">A</span>
+          </div>
+          <div class="device-role">Device A · Sender<br><span id="alice-ip" style="color:var(--text-dim)">192.168.1.10</span></div>
+          <div class="proto-pills">
+            <div class="proto-pill"><div class="pill-dot udp"></div>UDP</div>
+            <div class="proto-pill"><div class="pill-dot tcp"></div>TCP</div>
+          </div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.62rem;margin-top:4px;color:var(--alice)" id="alice-fc">7 files</div>
+        </div>
+
+        <!-- ── NETWORK ZONE (SVG arrows + center box) ── -->
+        <div class="network-zone" id="network-zone">
+          <!-- SVG layer for animated arrows -->
+          <svg class="proto-svg" id="proto-svg" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrowA" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0,7 2.5,0 5" fill="#00e5ff"/>
+              </marker>
+              <marker id="arrowB" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0,7 2.5,0 5" fill="#ff6b35"/>
+              </marker>
+              <marker id="arrowG" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0,7 2.5,0 5" fill="#39ff14"/>
+              </marker>
+              <marker id="arrowY" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0,7 2.5,0 5" fill="#ffd60a"/>
+              </marker>
+            </defs>
+
+            <!-- Row 1: UDP Broadcast → (right) -->
+            <line id="ln-udp" x1="4%" y1="22%" x2="96%" y2="22%"
+              stroke="#ff6b35" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.7"
+              class="anim-r" marker-end="url(#arrowB)"/>
+            <text class="arrow-label udp-lbl" id="lbl-udp" x="50%" y="19%" text-anchor="middle">UDP Broadcast →</text>
+
+            <!-- Row 2a: SYN (right) -->
+            <line id="ln-syn" x1="96%" y1="38%" x2="4%" y2="38%"
+              stroke="#00e5ff" stroke-width="1.8" stroke-dasharray="6 4" opacity="0.5"
+              class="anim-l" marker-end="url(#arrowA)"/>
+            <text class="arrow-label tcp-lbl" id="lbl-syn" x="50%" y="35%" text-anchor="middle">← TCP SYN</text>
+
+            <!-- Row 2b: SYN-ACK (left) -->
+            <line id="ln-synack" x1="4%" y1="50%" x2="96%" y2="50%"
+              stroke="#00e5ff" stroke-width="1.8" stroke-dasharray="6 4" opacity="0.8"
+              class="anim-r" marker-end="url(#arrowA)"/>
+            <text class="arrow-label tcp-lbl" id="lbl-synack" x="50%" y="47%" text-anchor="middle">← SYN-ACK</text>
+
+            <!-- Row 2c: ACK (right) -->
+            <line id="ln-ack" x1="4%" y1="62%" x2="96%" y2="62%"
+              stroke="#00e5ff" stroke-width="1.8" stroke-dasharray="6 4" opacity="0.8"
+              class="anim-r" marker-end="url(#arrowA)"/>
+            <text class="arrow-label tcp-lbl" id="lbl-ack" x="50%" y="59%" text-anchor="middle">ACK →</text>
+
+            <!-- Row 3: Chunked stream (right) -->
+            <line id="ln-stream" x1="4%" y1="76%" x2="96%" y2="76%"
+              stroke="#39ff14" stroke-width="2.5" stroke-dasharray="8 4" opacity="0"
+              class="anim-r" marker-end="url(#arrowG)"/>
+            <text class="arrow-label stream-lbl" id="lbl-stream" x="50%" y="73%" text-anchor="middle" opacity="0">Chunked TCP Stream (64 KB) →</text>
+
+            <!-- Row 4: MD5 check (left) -->
+            <line id="ln-md5" x1="96%" y1="90%" x2="4%" y2="90%"
+              stroke="#ffd60a" stroke-width="1.5" stroke-dasharray="5 4" opacity="0"
+              class="anim-l" marker-end="url(#arrowY)"/>
+            <text class="arrow-label md5-lbl" id="lbl-md5" x="50%" y="87%" text-anchor="middle" opacity="0">← MD5 Hash Comparison (conflict check)</text>
+
+            <!-- Discovery label top-right corner -->
+            <text class="arrow-label" x="97%" y="8%" text-anchor="end" style="fill:#ff6b3577;font-size:8px">→ Discovery</text>
+          </svg>
+
+          <!-- Center network info box -->
+          <div class="net-box" id="net-box">
+            <div class="net-box-title">Network</div>
+            <div class="net-row udp-row">UDP :50002 (broadcast)</div>
+            <div class="net-row tcp-row">TCP :50001 (stream)</div>
+            <div class="net-row lat-row" id="lat-row">latency: —</div>
+          </div>
+        </div>
+
+        <!-- ── BOB DEVICE CARD ── -->
+        <div class="device-card bob-card">
+          <div class="device-title">Bob</div>
+          <div class="device-circle">
+            <span class="device-letter">B</span>
+          </div>
+          <div class="device-role">Device B · Receiver<br><span id="bob-ip" style="color:var(--text-dim)">192.168.1.11</span></div>
+          <div class="proto-pills">
+            <div class="proto-pill"><div class="pill-dot udp"></div>UDP</div>
+            <div class="proto-pill"><div class="pill-dot tcp"></div>TCP</div>
+          </div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.62rem;margin-top:4px;color:var(--bob)" id="bob-fc">0 files</div>
+        </div>
+
+      </div><!-- end proto-wrap -->
+    </div><!-- end topology-canvas -->
+  </div>
+
+  <!-- ── ALICE FILES ── -->
+  <div class="card file-panel alice-panel">
+    <div class="card-title">📁 Alice's Shared Folder — shared_alice/</div>
+    <div class="file-list" id="alice-files"></div>
+  </div>
+
+  <!-- ── BOB FILES ── -->
+  <div class="card file-panel bob-panel">
+    <div class="card-title">📁 Bob's Shared Folder — shared_bob/</div>
+    <div class="file-list" id="bob-files">
+      <div style="text-align:center;padding:32px;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:.72rem">
+        Empty — waiting for sync…
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TRANSFER CONTROLS ── -->
+  <div class="card controls-card">
+    <div class="card-title">⚡ Transfer Controls</div>
+    <div class="controls-inner">
+      <div class="control-group">
+        <div class="control-label">SELECT FILE</div>
+        <select id="sel-file">
+          <option value="">— choose file —</option>
+        </select>
+      </div>
+      <div class="control-group" style="max-width:180px">
+        <div class="control-label">FROM</div>
+        <select id="sel-from">
+          <option value="alice">Alice</option>
+          <option value="bob">Bob</option>
+        </select>
+      </div>
+      <div class="control-group" style="max-width:180px">
+        <div class="control-label">TO</div>
+        <select id="sel-to">
+          <option value="bob">Bob</option>
+          <option value="alice">Alice</option>
+        </select>
+      </div>
+      <div class="control-group" style="max-width:140px; justify-content:flex-end">
+        <div class="control-label">ACTION</div>
+        <button class="btn btn-primary" onclick="sendFile()">📤 SEND FILE</button>
+      </div>
+      <div class="control-group" style="max-width:160px; justify-content:flex-end">
+        <div class="control-label">SYNC</div>
+        <button class="btn btn-secondary" onclick="triggerSync()">🔄 AUTO SYNC</button>
+      </div>
+      <div class="control-group" style="max-width:160px; justify-content:flex-end">
+        <div class="control-label">EDIT FILE</div>
+        <button class="btn btn-danger" onclick="simulateEdit()">✏️ MODIFY FILE</button>
+      </div>
+    </div>
+    <!-- Progress bar -->
+    <div style="margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-family:'Space Mono',monospace;font-size:.65rem;color:var(--text-dim)" id="progress-label">READY</span>
+        <span style="font-family:'Space Mono',monospace;font-size:.65rem;color:var(--text-dim)" id="progress-pct">—</span>
+      </div>
+      <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+        <div id="progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--alice),var(--bob));border-radius:2px;transition:width .1s"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ACTIVITY LOG ── -->
+  <div class="card log-card">
+    <div class="card-title">📜 System Activity Log</div>
+    <div class="log-list" id="log-list"></div>
+  </div>
+</main>
+
+<!-- ── CONFLICT MODAL ── -->
+<div class="modal-overlay" id="conflict-modal">
+  <div class="modal">
+    <div class="modal-title">⚠️ CONFLICT DETECTED</div>
+    <div class="modal-body" id="conflict-body">
+      Both Alice and Bob have modified '<strong>file.txt</strong>'.<br>
+      Bob's version is newer (mtime: 14:32:05) vs Alice's (mtime: 14:31:50).<br><br>
+      Strategy: <strong>Keep newer version</strong> (Bob's copy will overwrite Alice's).
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" onclick="resolveConflict('keep_local')">Keep Local</button>
+      <button class="btn btn-secondary" onclick="resolveConflict('keep_remote')">Keep Remote</button>
+      <button class="btn btn-primary" onclick="resolveConflict('keep_newer')">Keep Newer ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+//   DATA — mirrors the actual shared folders
+// ════════════════════════════════════════════
+const state = {
+  transferred: 0,
+  conflicts: 0,
+  aliceFiles: [
+    { name: 'IoT Workshop.mp4', size: '6.2 MB', icon: '🎬', status: 'synced' },
+    { name: 'sem_signalling.zip', size: '727 KB', icon: '📦', status: 'synced' },
+    { name: 'hi.txt',   size: '7 B',   icon: '📝', status: 'synced' },
+    { name: 'bye.txt',  size: '0 B',   icon: '📝', status: 'synced' },
+    { name: 'chart.jpg', size: '—',    icon: '🖼️',  status: 'synced' },
+    { name: 'Maths.txt', size: '0 B',  icon: '📝', status: 'synced' },
+    { name: 'Science.txt', size: '0 B',icon: '📝', status: 'synced' },
+  ],
+  bobFiles: [],
+};
+
+// ════════════════════════════════════════════
+//   CLOCK
+// ════════════════════════════════════════════
+function tick() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-GB', {hour12: false});
+}
+tick(); setInterval(tick, 1000);
+
+// ════════════════════════════════════════════
+//   RENDER FILE LISTS
+// ════════════════════════════════════════════
+function renderFiles() {
+  renderList('alice-files', state.aliceFiles);
+  renderList('bob-files', state.bobFiles);
+  document.getElementById('stat-alice-count').textContent = state.aliceFiles.length;
+  document.getElementById('stat-bob-count').textContent   = state.bobFiles.length;
+  const afc = document.getElementById('alice-fc');
+  const bfc = document.getElementById('bob-fc');
+  if (afc) afc.textContent = state.aliceFiles.length + ' files';
+  if (bfc) bfc.textContent = state.bobFiles.length + ' files';
+
+  // Repopulate file selector
+  const sel = document.getElementById('sel-file');
+  const from = document.getElementById('sel-from').value;
+  const list = from === 'alice' ? state.aliceFiles : state.bobFiles;
+  sel.innerHTML = '<option value="">— choose file —</option>';
+  list.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.name; opt.textContent = f.name;
+    sel.appendChild(opt);
+  });
+}
+
+function renderList(id, files) {
+  const el = document.getElementById(id);
+  if (files.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-dim);font-family:\'Space Mono\',monospace;font-size:.72rem">Empty — waiting for sync…</div>';
+    return;
+  }
+  el.innerHTML = '';
+  files.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'file-item' + (f.status === 'conflict' ? ' conflict' : '') + (f._new ? ' new-file' : '');
+    div.innerHTML = `
+      <span class="file-icon">${f.icon}</span>
+      <span class="file-name">${f.name}</span>
+      <span class="file-size">${f.size}</span>
+      <span class="file-badge ${f.status === 'new' ? 'badge-new' : f.status === 'conflict' ? 'badge-conflict' : 'badge-synced'}">
+        ${f.status === 'new' ? 'NEW' : f.status === 'conflict' ? 'CONFLICT' : 'SYNC'}
+      </span>
+      ${f._progress != null ? `<div class="file-progress" style="width:${f._progress}%"></div>` : ''}
+    `;
+    el.appendChild(div);
+    if (f._new) { setTimeout(() => { f._new = false; renderFiles(); }, 2000); }
+  });
+}
+
+// ════════════════════════════════════════════
+//   ACTIVITY LOG
+// ════════════════════════════════════════════
+const tagClass = { DISC:'disc', SEND:'send', RECV:'recv', SYNC:'sync', OK:'ok', ERR:'err', CONF:'conf' };
+function addLog(tag, msg) {
+  const list = document.getElementById('log-list');
+  const ts   = new Date().toLocaleTimeString('en-GB', {hour12:false});
+  const tc   = tagClass[tag] || 'sync';
+  const div  = document.createElement('div');
+  div.className = `log-entry border-${tc}`;
+  div.innerHTML = `<span class="log-time">${ts}</span><span class="log-tag tag-${tc}">${tag}</span><span class="log-msg">${msg}</span>`;
+  list.prepend(div);
+  // Trim
+  while (list.children.length > 80) list.removeChild(list.lastChild);
+}
+
+// ════════════════════════════════════════════
+//   PROTOCOL PHASE ANIMATION
+// ════════════════════════════════════════════
+const phases = [
+  'PHASE 1 — UDP DISCOVERY',
+  'PHASE 2 — TCP HANDSHAKE (SYN → SYN-ACK → ACK)',
+  'PHASE 3 — CHUNKED FILE STREAM',
+  'PHASE 4 — MD5 INTEGRITY CHECK',
+];
+let currentPhase = 0;
+function setPhase(i) {
+  currentPhase = i;
+  const lbl = document.getElementById('phase-label');
+  if (lbl) lbl.textContent = phases[i];
+}
+
+function animatePacket(fromAlice = true) {
+  // Show stream + md5 arrows, update phase
+  const stream = document.getElementById('ln-stream');
+  const streamLbl = document.getElementById('lbl-stream');
+  const md5 = document.getElementById('ln-md5');
+  const md5Lbl = document.getElementById('lbl-md5');
+  const lat = document.getElementById('lat-row');
+
+  setPhase(1); // TCP handshake phase while transfer starts
+
+  // Simulate latency value
+  const latMs = Math.floor(Math.random() * 8 + 1);
+  if (lat) lat.textContent = `latency: ${latMs}ms`;
+
+  // After a moment show streaming phase
+  setTimeout(() => {
+    setPhase(2);
+    if (stream) { stream.setAttribute('opacity', '0.9'); }
+    if (streamLbl) { streamLbl.setAttribute('opacity', '1'); }
+  }, 400);
+
+  // Then MD5 phase
+  setTimeout(() => {
+    setPhase(3);
+    if (md5) { md5.setAttribute('opacity', '0.8'); }
+    if (md5Lbl) { md5Lbl.setAttribute('opacity', '1'); }
+  }, 1100);
+
+  // Reset back to discovery after done
+  setTimeout(() => {
+    setPhase(0);
+    if (stream) { stream.setAttribute('opacity', '0'); }
+    if (streamLbl) { streamLbl.setAttribute('opacity', '0'); }
+    if (md5) { md5.setAttribute('opacity', '0'); }
+    if (md5Lbl) { md5Lbl.setAttribute('opacity', '0'); }
+    if (lat) lat.textContent = `latency: ${latMs}ms`;
+  }, 2200);
+}
+
+// ════════════════════════════════════════════
+//   PROGRESS BAR HELPER
+// ════════════════════════════════════════════
+function runProgress(label, onDone) {
+  const bar   = document.getElementById('progress-bar');
+  const lbl   = document.getElementById('progress-label');
+  const pct   = document.getElementById('progress-pct');
+  let p = 0;
+  lbl.textContent = label;
+  const iv = setInterval(() => {
+    p += Math.random() * 12 + 5;
+    if (p >= 100) { p = 100; clearInterval(iv); setTimeout(onDone, 300); }
+    bar.style.width = p + '%';
+    pct.textContent = Math.floor(p) + '%';
+  }, 80);
+}
+
+function resetProgress() {
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-label').textContent = 'READY';
+  document.getElementById('progress-pct').textContent = '—';
+}
+
+// ════════════════════════════════════════════
+//   SEND FILE
+// ════════════════════════════════════════════
+function sendFile() {
+  const from     = document.getElementById('sel-from').value;
+  const to       = document.getElementById('sel-to').value;
+  const filename = document.getElementById('sel-file').value;
+  if (!filename) { addLog('ERR', 'No file selected.'); return; }
+
+  const fromAlice = from === 'alice';
+  const srcList   = fromAlice ? state.aliceFiles : state.bobFiles;
+  const dstList   = fromAlice ? state.bobFiles   : state.aliceFiles;
+  const fileObj   = srcList.find(f => f.name === filename);
+  if (!fileObj) { addLog('ERR', `File '${filename}' not found in ${from}'s folder.`); return; }
+
+  // Check if dest already has it
+  const exists = dstList.find(f => f.name === filename);
+
+  addLog('SEND', `📤 Sending '${filename}' from ${from.toUpperCase()} → ${to.toUpperCase()}`);
+  addLog('SYNC', `TCP handshake on port 50001 — streaming ${fileObj.size}`);
+
+  runProgress(`TRANSFERRING ${filename} …`, () => {
+    // Add or update in dest
+    if (exists) {
+      // simulate conflict scenario
+      exists.status = 'conflict';
+      state.conflicts++;
+      document.getElementById('stat-conflicts').textContent = state.conflicts;
+      addLog('CONF', `⚠️ Conflict: '${filename}' already exists on ${to.toUpperCase()}`);
+      showConflict(filename, from, to);
+    } else {
+      const copy = { ...fileObj, status: 'new', _new: true };
+      dstList.push(copy);
+      state.transferred++;
+      document.getElementById('stat-transferred').textContent = state.transferred;
+      addLog('RECV', `📥 '${filename}' received by ${to.toUpperCase()} — MD5 verified ✓`);
+      addLog('OK',   `✔ Transfer complete. ${from.toUpperCase()} → ${to.toUpperCase()}`);
+    }
+    animatePacket(fromAlice);
+    renderFiles();
+    resetProgress();
+  });
+}
+
+// ════════════════════════════════════════════
+//   AUTO SYNC
+// ════════════════════════════════════════════
+function triggerSync() {
+  addLog('SYNC', '🔄 Manual sync triggered — scanning both manifests…');
+  addLog('DISC', '📡 Broadcasting PROXSHARE_DISCOVER on 192.168.1.255:50002');
+  addLog('DISC', '🤝 Peer "Bob" found @ 192.168.1.11 — initiating sync');
+
+  const aliceNames = new Set(state.aliceFiles.map(f => f.name));
+  const bobNames   = new Set(state.bobFiles.map(f => f.name));
+  const missing    = state.aliceFiles.filter(f => !bobNames.has(f.name));
+
+  if (missing.length === 0) {
+    addLog('OK', '✔ Folders already in sync — nothing to transfer.');
+    return;
+  }
+
+  let i = 0;
+  function next() {
+    if (i >= missing.length) {
+      addLog('OK', `✔ Auto-sync complete — ${missing.length} file(s) pulled to Bob.`);
+      renderFiles();
+      resetProgress();
+      return;
+    }
+    const f = missing[i++];
+    addLog('SEND', `  ➕ Pulling '${f.name}' → Bob (missing)`);
+    runProgress(`AUTO-SYNC: ${f.name} …`, () => {
+      const copy = { ...f, status: 'new', _new: true };
+      state.bobFiles.push(copy);
+      state.transferred++;
+      document.getElementById('stat-transferred').textContent = state.transferred;
+      animatePacket(true);
+      renderFiles();
+      setTimeout(next, 300);
+    });
+  }
+  next();
+}
+
+// ════════════════════════════════════════════
+//   SIMULATE EDIT → CONFLICT
+// ════════════════════════════════════════════
+function simulateEdit() {
+  // Make bob modify a file that alice also has
+  const shared = state.bobFiles.find(f =>
+    state.aliceFiles.some(a => a.name === f.name)
+  );
+  if (!shared) {
+    addLog('SYNC', 'No shared files yet — send a file to Bob first, then edit.');
+    return;
+  }
+  shared.status = 'new';
+  shared._modified = true;
+  addLog('CONF', `✏️ Bob modified '${shared.name}' — MD5 changed, mtime updated`);
+  addLog('SYNC', `  🔄 Next sync will detect conflict with Alice's copy`);
+  renderFiles();
+  // After short delay, show conflict resolution
+  setTimeout(() => {
+    const aliceCopy = state.aliceFiles.find(a => a.name === shared.name);
+    if (aliceCopy) aliceCopy.status = 'conflict';
+    state.conflicts++;
+    document.getElementById('stat-conflicts').textContent = state.conflicts;
+    addLog('CONF', `⚠️ CONFLICT: '${shared.name}' — Bob (newer) vs Alice`);
+    showConflict(shared.name, 'bob', 'alice');
+    renderFiles();
+  }, 1800);
+}
+
+// ════════════════════════════════════════════
+//   CONFLICT MODAL
+// ════════════════════════════════════════════
+let pendingConflict = null;
+function showConflict(filename, from, to) {
+  pendingConflict = { filename, from, to };
+  const now = new Date();
+  const t1 = now.toLocaleTimeString('en-GB', {hour12:false});
+  const t2 = new Date(now - 15000).toLocaleTimeString('en-GB', {hour12:false});
+  document.getElementById('conflict-body').innerHTML = `
+    Both <strong style="color:var(--alice)">Alice</strong> and 
+    <strong style="color:var(--bob)">Bob</strong> have a copy of
+    <code style="color:var(--yellow)">'${filename}'</code>.<br><br>
+    <strong style="color:var(--bob)">${from.toUpperCase()}</strong> version: mtime <code>${t1}</code><br>
+    <strong style="color:var(--alice)">${to.toUpperCase()}</strong> version: mtime <code>${t2}</code><br><br>
+    Strategy: <strong>Keep newer version</strong> (${from}'s copy will overwrite ${to}'s).
+  `;
+  document.getElementById('conflict-modal').classList.add('open');
+}
+function resolveConflict(strategy) {
+  document.getElementById('conflict-modal').classList.remove('open');
+  if (!pendingConflict) return;
+  const { filename, from, to } = pendingConflict;
+  const msg = strategy === 'keep_newer' ? `Kept newer (${from}'s) version`
+            : strategy === 'keep_local' ? `Kept local (${to}'s) version`
+            : `Kept remote (${from}'s) version`;
+  addLog('OK', `🔀 Conflict resolved on '${filename}' — ${msg}`);
+
+  // Reset conflict badges
+  [state.aliceFiles, state.bobFiles].forEach(list => {
+    list.forEach(f => { if (f.name === filename && f.status === 'conflict') f.status = 'synced'; });
+  });
+  renderFiles();
+  pendingConflict = null;
+  animatePacket(from === 'alice');
+}
+
+// ════════════════════════════════════════════
+//   FILE SELECTOR SYNC WITH FROM FIELD
+// ════════════════════════════════════════════
+document.getElementById('sel-from').addEventListener('change', function() {
+  const to = document.getElementById('sel-to');
+  to.value = this.value === 'alice' ? 'bob' : 'alice';
+  renderFiles();
+});
+
+// ════════════════════════════════════════════
+//   CLOSE MODAL ON OVERLAY CLICK
+// ════════════════════════════════════════════
+document.getElementById('conflict-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+
+// ════════════════════════════════════════════
+//   STARTUP
+// ════════════════════════════════════════════
+addLog('OK',   '✅ ProxShare Visual Dashboard loaded');
+addLog('DISC', '📡 Device "Alice" broadcasting on 192.168.1.10 (port 50002)');
+addLog('DISC', '🤝 Peer "Bob" discovered @ 192.168.1.11');
+addLog('SYNC', '⚙️  Sync engine started — interval: 8s');
+addLog('SYNC', '📋 Alice manifest: 7 files | Bob manifest: 0 files');
+renderFiles();
+</script>
+</body>
+</html>

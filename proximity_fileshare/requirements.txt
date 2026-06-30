@@ -1,0 +1,17 @@
+# Proximity-Based Automatic File Sharing
+# ========================================
+# This project uses ONLY Python standard library modules.
+# No pip install required!
+#
+# Standard library modules used:
+#   socket       – UDP broadcast, TCP file transfer
+#   threading    – concurrent peer discovery + file serving
+#   json         – message serialisation
+#   hashlib      – MD5 file integrity checking
+#   struct       – binary length-prefix framing
+#   os, shutil   – file system operations
+#   time         – timeouts, heartbeat intervals
+#   argparse     – CLI argument parsing
+#   logging      – structured event logging
+#
+# Python version: 3.8 or higher
