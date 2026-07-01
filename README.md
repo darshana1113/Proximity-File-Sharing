@@ -86,7 +86,7 @@ python main.py --name Bob --folder ./shared_bob --port 50002
 - `help` – show command help
 - `quit` – exit the program
 
-## 🔧 How It Works
+## 🔧 How It Works :
 
 1. Each device broadcasts its presence using UDP.
 2. Nearby devices are detected and stored as peers.
